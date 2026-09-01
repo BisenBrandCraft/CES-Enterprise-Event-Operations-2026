@@ -157,6 +157,9 @@ function switchPanel(id, el) {
   document.getElementById('panel-title').textContent = t[0];
   document.getElementById('panel-sub').textContent = t[1];
   window.CES_ACTIVE_PANEL = id;
+  // Always render the destination with the latest local/Firestore data.
+  const renderPanel = window.__cesRender && window.__cesRender[id];
+  if (renderPanel) renderPanel();
   // Apply role-based UI after panel renders
   setTimeout(function () { if (window.CES_AUTH) window.CES_AUTH.applyUI(); }, 80);
 }
