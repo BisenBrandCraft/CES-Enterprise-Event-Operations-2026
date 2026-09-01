@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "CES - Enterprice Event Operations System 2026",
+			"path": "."
+		},
+		{
+			"name": "FWSI-Antigravity-2026",
+			"path": "../FWSI-Antigravity-2026"
+		}
+	],
+	"settings": {}
+}

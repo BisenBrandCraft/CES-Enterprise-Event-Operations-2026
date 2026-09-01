@@ -1,0 +1,16 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "apps-script/**",
+      "docs/**",
+      "**/*.md",
+      "**/*.txt",
+      "**/*.code-workspace",
+      "Logo CES@2x.png"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="35.668" height="29.038" viewBox="0 0 35.668 29.038">
+  <defs>
+    <style>.a{fill:#1682be;}.b{clip-path:url(#a);}</style>
+    <clipPath id="a">
+      <rect class="a" width="35.668" height="29.038"></rect>
+    </clipPath>
+  </defs>
+  <path class="a" d="M1.243,34.464h17.9V51.715H1.243ZM0,57.222H20.383V33.4H0Z" transform="translate(0 -28.202)"></path>
+  <g class="b">
+    <path class="a" d="M84,0V4.269h1.243V2H95V9.655H92.233v1.036H95v7.465H92.233v1.036H95V26.74H92.233V29.02h4.011V0H84" transform="translate(-70.916 0)"></path>
+    <path class="a" d="M167.891,20.185l-.289.661v2.561l.567-1.295,7.39,3.236-2.539,5.8L167.6,28.773v.935l5.075,2.222L170.152,37.7l-2.55-1.117v.935l2.206.966L167.6,43.518v2.561l3.491-7.971,6.071-13.861Z" transform="translate(-141.496 -17.041)"></path>
+    <path class="a" d="M15.542,106.138l3.982-5.33,3.885,3.243,4.4-4.913,3.275,2.826v4.174Z" transform="translate(-13.121 -83.696)"></path>
+    <path class="a" d="M49.386,65.66A2.183,2.183,0,1,1,47.2,63.477a2.183,2.183,0,0,1,2.183,2.183" transform="translate(-38.007 -53.589)"></path>
+  </g>
+</svg>

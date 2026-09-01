@@ -1,0 +1,112 @@
+CES - Enterprise Event Operations System 2026/
+├── index.html                  ← Master entry point (open in Chrome)
+├── Logo CES@2x.png             ← CES branding logo
+│
+├── css/
+│   └── dashboard.css           ← Full dark-mode design system, all component styles,
+│                                  custom dropdown, KPI cards, modals, progress bars
+│
+├── js/
+│   ├── datetime-picker.js      ← CES Custom Date & Time Picker (date-only, time-only,
+│   │                              date+time modes — used across Events & Logistics)
+│   ├── dashboard.js            ← Core: all CES data (events, staff, inventory, logistics),
+│   │                              KPI cards, Priority Next 7 Days, 30-Day Pipeline,
+│   │                              Alert Center, Inventory chart, navigation, custom
+│   │                              dropdown system (cesApplyDropdowns), settings modal,
+│   │                              auto-refresh engine (↻ 60s countdown, __cesRender map),
+│   │                              localStorage persistence (saveCESData)
+│   ├── events.js               ← Events module: table, filters, conflict detection,
+│   │                              timeline generator, add/edit/delete modal,
+│   │                              staff picker, inventory picker
+│   ├── staff.js                ← Staff module: directory table, performance chart,
+│   │                              top performers panel, photo upload, add/edit/delete
+│   ├── inventory.js            ← Inventory module: equipment table, 17 categories,
+│   │                              QR scanner panel, category summary, add/edit/delete
+│   ├── logistics.js            ← Logistics module: dispatch log, fleet status panel,
+│   │                              status flow guide, truck combobox (type + select),
+│   │                              own fleet / rental truck toggle, add/edit/delete
+│   ├── automation.js           ← Automation Engine: 8 automation rules, live alerts,
+│   │                              notification log, run/pause/run-all controls;
+│   │                              ALSO contains Reports & Analytics module:
+│   │                              operational KPIs, events-by-type chart,
+│   │                              top events by health, executive summary, export
+│   └── settings.js             ← Settings modal: company profile, currency, date format,
+│                                  compact mode toggle, Export All Data (4 CSV files)
+│
+│   ── Not loaded (kept for reference only) ──
+│   ├── finance.js              ← [INACTIVE] Finance/invoice module — removed from app
+│   └── crm.js                  ← [INACTIVE] Client CRM module — removed from app
+│
+├── assets/
+│   └── icons/
+│       └── categories/         ← SVG icons for all 17 inventory categories
+│           ├── audio-video.svg
+│           ├── carnivals.svg
+│           ├── casino-nights.svg
+│           ├── crafts-favors.svg
+│           ├── dance-floors.svg
+│           ├── event-furniture.svg
+│           ├── game-shows.svg
+│           ├── giant-lawn-games.svg
+│           ├── halloween.svg
+│           ├── holiday-parties.svg
+│           ├── inflatables.svg
+│           ├── mitzvah.svg
+│           ├── performers.svg
+│           ├── photo-booths.svg
+│           ├── photo-favors.svg
+│           ├── sports-video-games.svg
+│           └── virtual-reality.svg
+│
+├── apps-script/                ← Google Apps Script backend (Phase 2)
+│   ├── setup.gs                ← Run ONCE → builds all Google Sheet tabs
+│   ├── automation.gs           ← Daily reports, alerts, health score triggers
+│   └── triggers.gs             ← Time-based triggers + conflict detection on edit
+│
+└── docs/
+    ├── appsheet-setup.md       ← Mobile app guide (Manager / Warehouse / Driver views)
+    └── looker-studio.md        ← Analytics dashboard setup guide
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ACTIVE MODULES (loaded in index.html)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. Dashboard      → dashboard.js
+  2. Events         → events.js
+  3. Staff          → staff.js
+  4. Inventory      → inventory.js
+  5. Logistics      → logistics.js
+  6. Automation     → automation.js  (also contains Reports panel)
+  7. Reports        → automation.js
+  8. Settings       → settings.js    (modal, not a separate panel)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REMOVED MODULES (not loaded)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Finance           → finance.js     [removed — separate payment system used]
+  Client CRM        → crm.js         [removed — handled externally]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATA STORED IN dashboard.js (CES global object)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CES.events        → 16 events (Completed / Active / Confirmed / Planning / Tentative)
+  CES.staff         → 10 staff members with roles, skills, performance scores
+  CES.inventory     → 14 inventory items across 17 categories (2 marked In Repair)
+  CES.logistics     → 3 dispatch records (own fleet + rental examples)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KEY TECHNICAL NOTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - Single-file HTML app — no build system, no framework, no server needed
+  - All JS modules are IIFEs (Immediately Invoked Function Expressions)
+  - cesApplyDropdowns() converts all <select> to custom styled dropdowns
+  - MutationObserver auto-applies dropdowns to dynamically rendered content
+  - Custom CES Date/Time Picker (datetime-picker.js) — 3 modes
+  - Chart.js loaded from CDN for any canvas-based charts
+  - Data persists via localStorage (saveCESData runs every 1s + on page unload)
+  - Phase 2: Google Sheets replaces localStorage as the data backend
+  - Auto-refresh: __cesRender global map holds each panel's render function;
+    60s countdown in topbar silently re-renders current panel every 60 seconds
+  - Event types must exactly match filter dropdown option text (strict === comparison)
+
+Last updated: May 2026 — v3.1

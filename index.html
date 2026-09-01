@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CES — Enterprise Operations System</title>
+<meta name="description" content="Creative Event Services — Enterprise Event Operations Dashboard">
+<link rel="stylesheet" href="css/dashboard.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ── STAFF PICKER ── */
+.staff-picker{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:220px;overflow-y:auto;padding:2px}
+.staff-pick-card{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;border:2px solid var(--border-subtle);background:var(--bg-input);cursor:pointer;transition:all 0.18s ease;user-select:none}
+.staff-pick-card:hover{border-color:var(--ces-blue);background:var(--bg-card-hover)}
+.staff-pick-card.selected{border-color:var(--ces-blue);background:var(--info-bg);box-shadow:0 0 0 1px var(--ces-blue)}
+.staff-pick-card input[type=checkbox]{display:none}
+.staff-pick-avatar{width:32px;height:32px;border-radius:50%;background:var(--ces-blue-glow);border:2px solid var(--ces-blue);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--ces-cyan);flex-shrink:0}
+.staff-pick-card.selected .staff-pick-avatar{background:var(--ces-blue);color:#fff}
+.staff-pick-info{flex:1;min-width:0}
+.staff-pick-name{font-size:11px;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.staff-pick-role{font-size:9px;color:var(--text-muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.staff-pick-check{width:16px;height:16px;border-radius:4px;border:2px solid var(--border);background:var(--bg-input);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:transparent;transition:all 0.15s}
+.staff-pick-card.selected .staff-pick-check{background:var(--ces-blue);border-color:var(--ces-blue);color:#fff}
+.staff-count-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--ces-cyan);background:var(--info-bg);border:1px solid var(--border);padding:3px 10px;border-radius:99px}
+/* ── INVENTORY PICKER ── */
+.inv-picker{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:160px;overflow-y:auto;padding:2px}
+.inv-pick-card{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;border:2px solid var(--border-subtle);background:var(--bg-input);cursor:pointer;transition:all 0.18s ease}
+.inv-pick-card:hover{border-color:var(--ces-blue)}
+.inv-pick-card.selected{border-color:var(--ces-blue);background:var(--info-bg)}
+.inv-pick-icon{font-size:16px;flex-shrink:0}
+.inv-pick-name{font-size:10px;font-weight:600;color:var(--text-primary);flex:1;line-height:1.3}
+.inv-pick-avail{font-size:9px;color:var(--text-muted)}
+.inv-pick-check{width:14px;height:14px;border-radius:3px;border:2px solid var(--border);background:var(--bg-input);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:8px;color:transparent;transition:all 0.15s}
+.inv-pick-card.selected .inv-pick-check{background:var(--ces-blue);border-color:var(--ces-blue);color:#fff}
+/* ── SETTINGS MODAL ── */
+.settings-section{border-bottom:1px solid var(--border-subtle)}
+.settings-section-title{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--ces-cyan);padding:14px 20px 6px;background:var(--bg-input)}
+.settings-section-body{padding:14px 20px}
+.settings-about-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border-subtle);font-size:11px}
+.settings-about-row span:first-child{color:var(--text-muted);font-weight:600}
+.settings-about-row span:last-child{color:var(--text-primary);font-weight:500}
+/* ── CES TOGGLE SWITCH ── */
+.ces-toggle{position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0}
+.ces-toggle input{opacity:0;width:0;height:0}
+.ces-toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--border);border-radius:22px;transition:0.2s}
+.ces-toggle-slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:0.2s}
+.ces-toggle input:checked + .ces-toggle-slider{background:var(--ces-blue)}
+.ces-toggle input:checked + .ces-toggle-slider:before{transform:translateX(18px)}
+/* ── COMPACT MODE ── */
+body.compact-mode .table-wrap td,body.compact-mode .table-wrap th{padding:5px 10px!important;font-size:11px!important}
+body.compact-mode .kpi-card{padding:12px 16px!important}
+body.compact-mode .stat-row{padding:6px 0!important}
+</style>
+</head>
+<body>
+<!-- ══ DB LOADING OVERLAY ════════════════════════════════════════════════════ -->
+<div id="ces-db-loading" style="display:none;position:fixed;inset:0;background:var(--bg-base);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:16px">
+  <div style="width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--ces-blue);border-radius:50%;animation:spin 0.8s linear infinite"></div>
+  <span style="font-size:12px;color:var(--text-muted);font-weight:500">Loading data…</span>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+<!-- ══ LOGIN OVERLAY ═════════════════════════════════════════════════════════ -->
+<div id="ces-login-overlay" style="display:none;position:fixed;inset:0;background:var(--bg-base);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
+  <div id="login-card" style="width:420px;background:var(--bg-card);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.6)">
+    <!-- Header -->
+    <div style="padding:32px 32px 20px;text-align:center;border-bottom:1px solid var(--border-subtle)">
+      <img src="assets/logo/Logo CES@2x.png" alt="CES" style="height:38px;margin-bottom:18px;display:block;margin-left:auto;margin-right:auto">
+      <div style="font-size:18px;font-weight:700;color:var(--text-primary)">Welcome back</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:5px">Sign in to CES Enterprise Operations System</div>
+    </div>
+    <!-- Form -->
+    <div style="padding:24px 32px">
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <input class="form-control" id="login-email" type="email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-group" style="margin-top:12px">
+        <label class="form-label">Password</label>
+        <div style="position:relative">
+          <input class="form-control" id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" style="padding-right:44px">
+          <button type="button" id="login-pw-toggle" onclick="var i=document.getElementById('login-password'),b=document.getElementById('login-pw-toggle');i.type=i.type==='password'?'text':'password';b.innerHTML=i.type==='password'?'<svg width=16 height=16 viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\'><path d=\'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z\'/><circle cx=\'12\' cy=\'12\' r=\'3\'/></svg>':'<svg width=16 height=16 viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\'><path d=\'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24\'/><line x1=\'1\' y1=\'1\' x2=\'23\' y2=\'23\'/></svg>'" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;display:flex;align-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </div>
+      <div id="login-error" style="display:none;color:#f44336;font-size:11px;margin-top:8px;padding:8px 12px;background:rgba(244,67,54,0.08);border-radius:6px;border:1px solid rgba(244,67,54,0.2)"></div>
+      <button onclick="cesLogin()" style="width:100%;margin-top:16px;padding:11px;background:var(--ces-blue);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:background 0.2s;letter-spacing:0.3px" onmouseover="this.style.background='var(--ces-cyan)'" onmouseout="this.style.background='var(--ces-blue)'">Sign In →</button>
+    </div>
+    <!-- Footer -->
+    <div style="padding:10px 32px 14px;text-align:center;border-top:1px solid var(--border-subtle)">
+      <span style="font-size:10px;color:var(--text-muted)">CES Enterprise Operations System v1.0 · 2026</span>
+    </div>
+  </div>
+</div>
+
+<div class="app-layout" style="display:none">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <img src="assets/logo/Logo CES@2x.png" alt="Creative Event Services">
+    <span class="logo-tag">EOS v1.0</span>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Command Center</div>
+    <a class="nav-item active" data-panel="dashboard" onclick="switchPanel('dashboard',this)">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer" onclick="document.querySelector('.sidebar').classList.toggle('collapsed'); event.stopPropagation();" title="Click to Collapse/Expand Sidebar"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </a>
+    <div class="nav-section-label">Operations</div>
+    <a class="nav-item" data-panel="events" onclick="switchPanel('events',this)">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Events
+      <span class="nav-badge">16</span>
+    </a>
+    <a class="nav-item" data-panel="staff" onclick="switchPanel('staff',this)">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Staff Operations
+    </a>
+    <a class="nav-item" data-panel="inventory" onclick="switchPanel('inventory',this)">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+      Inventory
+    </a>
+    <a class="nav-item" data-panel="logistics" onclick="switchPanel('logistics',this)">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+      Logistics
+    </a>
+    <div class="nav-section-label">System</div>
+    <a class="nav-item" data-panel="automation" onclick="switchPanel('automation',this)">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Automation
+    </a>
+    <a class="nav-item" data-panel="reports" onclick="switchPanel('reports',this)">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Reports & Analytics
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    Creative Event Services<br>
+    <span class="version">EOS v1.0 — 2026</span>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main-area">
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-title">
+      <span id="panel-title">CES Master Dashboard</span>
+      <small style="display:block;font-size:10px;font-weight:400;color:var(--text-muted)" id="panel-sub">Enterprise Event Operations System</small>
+    </div>
+    <div class="topbar-actions">
+<div class="topbar-clock" id="live-clock">--:--:--</div>
+      <button class="btn-icon notif-dot" title="Alerts" onclick="switchPanel('automation',document.querySelector('[data-panel=automation]'))">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </button>
+      <button class="btn-icon" title="Settings" onclick="openSettings()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+      <!-- User Avatar + Dropdown -->
+      <div id="topbar-user-btn" style="position:relative;cursor:pointer;display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:8px;border:1px solid var(--border);transition:border-color 0.2s" onclick="toggleUserMenu()" onmouseover="this.style.borderColor='var(--ces-blue)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div id="user-avatar" class="avatar" style="cursor:pointer;width:30px;height:30px;font-size:11px">TB</div>
+        <div style="display:flex;flex-direction:column;line-height:1.3">
+          <span id="topbar-user-name" style="font-size:11px;font-weight:600;color:var(--text-primary);white-space:nowrap">Talib Bisen</span>
+          <span id="topbar-user-role" class="topbar-role-tag role-owner">Owner</span>
+        </div>
+        <!-- Dropdown -->
+        <div id="user-dropdown-menu" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:6px;min-width:200px;z-index:9998;box-shadow:0 8px 32px rgba(0,0,0,0.5)">
+          <div style="padding:8px 10px 10px;border-bottom:1px solid var(--border-subtle);margin-bottom:4px">
+            <div id="dd-user-name" style="font-size:12px;font-weight:700;color:var(--text-primary)"></div>
+            <div id="dd-user-email" style="font-size:10px;color:var(--text-muted);margin-top:2px"></div>
+            <div id="dd-user-role" style="display:inline-block;margin-top:6px;font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px"></div>
+          </div>
+          <button onclick="cesLogout()" style="width:100%;text-align:left;padding:8px 10px;background:transparent;border:none;border-radius:6px;color:#f44336;font-size:12px;font-weight:600;cursor:pointer;transition:background 0.15s;display:flex;align-items:center;gap:6px" onmouseover="this.style.background='rgba(244,67,54,0.1)'" onmouseout="this.style.background='transparent'">↪ Sign Out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <div class="content-area">
+
+    <!-- DASHBOARD PANEL -->
+    <div class="module-panel active" id="panel-dashboard">
+      <div class="kpi-grid" id="kpi-grid"></div>
+
+      <!-- Upcoming Events + Compact Alerts -->
+      <div class="grid-21" style="margin-bottom:20px;align-items:start">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title"><span class="card-title-icon"></span>📅 Upcoming — Next 7 Days</span>
+            <span class="badge badge-info" id="week-event-count"></span>
+          </div>
+          <div class="card-body" id="week-priority-events" style="padding:12px"></div>
+        </div>
+        <!-- Alerts: compact, de-emphasized -->
+        <div class="card" style="border-color:var(--border-subtle)">
+          <div class="card-header" style="padding:10px 14px">
+            <span class="card-title" style="font-size:11px;color:var(--text-muted)"><span class="card-title-icon"></span>Alerts</span>
+            <span id="alert-count" style="font-size:10px;font-weight:600;color:var(--text-muted);background:var(--bg-input);border:1px solid var(--border-subtle);padding:2px 8px;border-radius:99px">4</span>
+          </div>
+          <div id="alert-list"></div>
+        </div>
+      </div>
+
+      <!-- 30-Day Event Pipeline -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <span class="card-title"><span class="card-title-icon"></span>📅 30-Day Event Pipeline</span>
+          <span class="badge badge-info" id="pipeline-count"></span>
+        </div>
+        <div class="table-wrap" id="pipeline-30day"></div>
+      </div>
+
+      <!-- Inventory Utilization -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header"><span class="card-title"><span class="card-title-icon"></span>Inventory Utilization</span></div>
+        <div class="card-body" style="padding:14px 20px"><canvas id="inventoryChart" style="display:none"></canvas></div>
+      </div>
+
+      <!-- DASHBOARD FOOTER -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;margin-top:4px;border-top:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-card)">
+        <span style="font-size:11px;color:var(--text-muted)">Creative Event Services — Enterprise Operations System v1.0 &nbsp;·&nbsp; 2026</span>
+        <button onclick="window.open('CES_User_Guide.md','_blank')" style="display:flex;align-items:center;gap:6px;background:rgba(0,146,200,0.1);border:1px solid rgba(0,146,200,0.25);border-radius:6px;color:var(--ces-blue);font-size:11px;font-weight:600;padding:6px 14px;cursor:pointer;transition:background 0.2s" onmouseover="this.style.background='rgba(0,146,200,0.2)'" onmouseout="this.style.background='rgba(0,146,200,0.1)'">
+          📖 View User Guide
+        </button>
+      </div>
+
+    </div>
+
+    <!-- EVENTS PANEL -->
+    <div class="module-panel" id="panel-events"></div>
+
+    <!-- STAFF PANEL -->
+    <div class="module-panel" id="panel-staff"></div>
+
+    <!-- INVENTORY PANEL -->
+    <div class="module-panel" id="panel-inventory"></div>
+
+    <!-- LOGISTICS PANEL -->
+    <div class="module-panel" id="panel-logistics"></div>
+
+    <!-- AUTOMATION PANEL -->
+    <div class="module-panel" id="panel-automation"></div>
+
+    <!-- REPORTS PANEL -->
+    <div class="module-panel" id="panel-reports"></div>
+
+  </div>
+</div>
+</div>
+
+<!-- ADD / EDIT EVENT MODAL -->
+<div class="modal-overlay" id="modal-add-event">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <span class="modal-title" id="event-modal-title">➕ New Event</span>
+      <button class="modal-close" onclick="closeModal('modal-add-event')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-event-id" value="">
+
+      <!-- ROW 1: Basic Info -->
+      <div style="font-size:10px;font-weight:700;color:var(--ces-cyan);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px">📋 Event Details</div>
+      <div class="form-grid-2">
+        <div class="form-group"><label class="form-label">Event Name</label><input class="form-control" id="new-event-name" placeholder="Corporate Gala 2026"></div>
+        <div class="form-group"><label class="form-label">Client</label><input class="form-control" id="new-event-client" placeholder="Acme Corp"></div>
+        <div class="form-group"><label class="form-label">Venue</label><input class="form-control" id="new-event-venue" placeholder="Grand Ballroom, Dubai"></div>
+        <div class="form-group"><label class="form-label">Event Type</label><select class="form-control" id="new-event-type"><option>Holiday</option><option>Corporate</option><option>College</option><option>Private / Social</option><option>Mitzvah</option><option>Party Planners / DJ Companies</option></select></div>
+        <div class="form-group"><label class="form-label">Event Date</label><div id="ces-dtp-event-date-wrap"></div></div>
+        <div class="form-group"><label class="form-label">Event Time (Start → End)</label><div style="display:flex;gap:6px;align-items:center"><div id="ces-dtp-event-start-wrap" style="flex:1"></div><span style="line-height:38px;color:var(--text-muted);font-size:12px">→</span><div id="ces-dtp-event-end-wrap" style="flex:1"></div></div></div>
+        <div class="form-group"><label class="form-label">Setup Time → Strike Time</label><div style="display:flex;gap:6px;align-items:center"><div id="ces-dtp-setup-wrap" style="flex:1"></div><span style="line-height:38px;color:var(--text-muted);font-size:12px">→</span><div id="ces-dtp-strike-wrap" style="flex:1"></div></div></div>
+        <div class="form-group"><label class="form-label">Contact Day of Event — Name</label><input class="form-control" id="new-event-contact-name" placeholder="e.g. John Smith"></div>
+        <div class="form-group"><label class="form-label">Contact Day of Event — Phone</label><input class="form-control" id="new-event-contact-phone" placeholder="e.g. +971 50 123 4567"></div>
+        <div class="form-group"><label class="form-label">Contact Day of Event — Email</label><input type="email" class="form-control" id="new-event-contact-email" placeholder="e.g. john@company.com"></div>
+      </div>
+
+      <!-- EVENT MANAGER -->
+      <div class="form-group">
+        <label class="form-label">Event Manager</label>
+        <input class="form-control" id="new-event-mgr" placeholder="Enter event manager name">
+      </div>
+
+      <!-- STAFF ASSIGNMENT -->
+      <div style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:10px;font-weight:700;color:var(--ces-cyan);text-transform:uppercase;letter-spacing:1.2px">👥 Assign Staff</div>
+          <span class="staff-count-badge" id="staff-selected-count">0 selected</span>
+        </div>
+        <div class="staff-picker" id="staff-picker-grid"></div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:6px">💡 Click on a staff card to select/deselect. Multiple selection allowed.</div>
+      </div>
+
+      <!-- INVENTORY ASSIGNMENT -->
+      <div style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:10px;font-weight:700;color:var(--ces-cyan);text-transform:uppercase;letter-spacing:1.2px">📦 Reserve Inventory</div>
+          <span class="staff-count-badge" id="inv-selected-count">0 items</span>
+        </div>
+        <div class="inv-picker" id="inv-picker-grid"></div>
+      </div>
+
+      <!-- TRUCK + NOTES -->
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Assign Truck</label>
+          <select class="form-control" id="new-event-truck"><option value="">-- No Truck --</option><option>CES-TRK-01</option><option>CES-TRK-02</option><option>CES-TRK-03</option></select>
+        </div>
+        <!-- Status field -->
+        <div class="form-group" id="event-status-group">
+          <label class="form-label">Event Status</label>
+          <select class="form-control" id="new-event-status">
+            <option>Planning</option>
+            <option>Tentative</option>
+            <option>Confirmed</option>
+            <option>Active</option>
+            <option>Completed</option>
+            <option>Cancelled</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Notes</label><textarea class="form-control" id="new-event-notes" rows="4" placeholder="Special requirements, VIP guests, photobooth setup notes..."></textarea></div>
+
+      <div style="display:flex;gap:10px;justify-content:space-between;margin-top:12px">
+        <button class="btn btn-outline" id="btn-delete-event" style="color:#f44336;border-color:rgba(244,67,54,0.3);display:none" onclick="deleteEvent(document.getElementById('edit-event-id').value)">🗑️ Delete Event</button>
+        <div style="display:flex;gap:10px;margin-left:auto">
+          <button class="btn btn-outline" onclick="closeModal('modal-add-event')">Cancel</button>
+          <button class="btn btn-primary" id="btn-submit-event" onclick="addEvent()">✅ Create Event</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD / EDIT STAFF MODAL -->
+<div class="modal-overlay" id="modal-add-staff">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <span class="modal-title" id="staff-modal-title">➕ Add New Staff</span>
+      <button class="modal-close" onclick="closeModal('modal-add-staff')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-staff-id" value="">
+
+      <!-- ── PHOTO UPLOAD ──────────────────────────────────────────── -->
+      <div style="display:flex;justify-content:center;margin-bottom:18px">
+        <div style="text-align:center">
+          <div id="staff-photo-preview"
+               onclick="document.getElementById('staff-photo-input').click()"
+               style="width:84px;height:84px;border-radius:50%;background:var(--bg-input);border:2px dashed var(--border-subtle);cursor:pointer;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s"
+               onmouseover="this.style.borderColor='var(--ces-blue)';this.style.boxShadow='0 0 0 3px rgba(0,146,200,0.12)'"
+               onmouseout="this.style.borderColor='var(--border-subtle)';this.style.boxShadow='none'">
+            <span id="staff-photo-initials" style="font-size:26px;font-weight:700;color:var(--ces-blue);pointer-events:none">?</span>
+          </div>
+          <input type="file" id="staff-photo-input" accept="image/*" style="display:none" onchange="handleStaffPhotoUpload(this)">
+          <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px">Click avatar to upload photo</div>
+          <button type="button" id="btn-remove-photo" onclick="removeStaffPhoto()" style="display:none;font-size:10px;color:#f44336;background:none;border:none;cursor:pointer;padding:0">✕ Remove photo</button>
+        </div>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input class="form-control" id="new-staff-name" placeholder="E.g., John Doe" oninput="updateStaffPhotoInitials()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone Number</label>
+          <input class="form-control" id="new-staff-phone" placeholder="+1 234 567 8900">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-control" type="email" id="new-staff-email" placeholder="E.g., john@example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role</label>
+          <input class="form-control" id="new-staff-role" placeholder="E.g., Tech Lead">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Primary Skill</label>
+          <select class="form-control" id="new-staff-skill">
+            <option>A/V Equipment</option>
+            <option>Carnivals</option>
+            <option>Casino</option>
+            <option>Crafts &amp; Favors</option>
+            <option>Event Furniture</option>
+            <option>Food Concessions</option>
+            <option>Game Shows</option>
+            <option>Giant / Lawn Games</option>
+            <option>Inflatables</option>
+            <option>Photo Booths</option>
+            <option>Sports &amp; Video Games</option>
+            <option>Virtual Reality</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Availability</label>
+          <select class="form-control" id="new-staff-avail">
+            <option>Available</option>
+            <option>Busy</option>
+          </select>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:10px;padding:8px;background:var(--bg-input);border-radius:6px;border:1px solid var(--border-subtle)">
+        💡 New staff are initialised at <strong>0% Performance</strong> and <strong>0 Events</strong> until assigned.
+      </div>
+      <div style="display:flex;gap:10px;justify-content:space-between;margin-top:16px">
+        <button class="btn btn-outline" id="btn-delete-staff" style="color:#f44336;border-color:rgba(244,67,54,0.3);display:none" onclick="deleteStaff(document.getElementById('edit-staff-id').value)">🗑️ Remove Staff</button>
+        <div style="display:flex;gap:10px;margin-left:auto">
+          <button class="btn btn-outline" onclick="closeModal('modal-add-staff')">Cancel</button>
+          <button class="btn btn-primary" id="btn-submit-staff" onclick="submitNewStaff()">✅ Add Staff</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD/EDIT INVENTORY MODAL -->
+<div class="modal-overlay" id="modal-add-inventory">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header">
+      <span class="modal-title" id="inv-modal-title">➕ Add New Inventory</span>
+      <button class="modal-close" onclick="closeModal('modal-add-inventory')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Item Name</label>
+          <input class="form-control" id="new-inv-name" placeholder="E.g., AI Photo Booth" oninput="autoSelectInvCategory()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select class="form-control" id="new-inv-cat" onchange="syncIconToCategory()">
+            <option>Audio / Video</option>
+            <option>Carnivals</option>
+            <option>Casino Nights</option>
+            <option>Crafts &amp; Favors</option>
+            <option>Dance Floors</option>
+            <option>Event Furniture</option>
+            <option>Game Shows</option>
+            <option>Giant / Lawn Games</option>
+            <option>Halloween Themed Entertainment</option>
+            <option>Holiday Parties</option>
+            <option>Inflatables</option>
+            <option>Mitzvah Madness</option>
+            <option>Performers</option>
+            <option>Photo Booths</option>
+            <option>Photo Favors</option>
+            <option>Sports &amp; Video Games</option>
+            <option>Virtual Reality</option>
+          </select>
+        </div>
+
+        <!-- ICON PICKER spanning full width -->
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Category Icon</label>
+          <input type="hidden" id="new-inv-emoji" value="assets/icons/categories/photo-booths.svg">
+          <div id="inv-icon-picker" style="display:flex;flex-wrap:wrap;gap:10px;padding:12px;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;max-height:180px;overflow-y:auto;">
+            <!-- icons injected by JS -->
+          </div>
+          <div style="margin-top:8px;display:flex;align-items:center;gap:10px;color:var(--text-muted);font-size:12px">
+            <img id="inv-icon-preview" src="assets/icons/categories/photo-booths.svg" style="width:28px;height:28px;opacity:0.8">
+            <span id="inv-icon-label">Photo Booths</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Total Quantity</label>
+          <input type="number" class="form-control" id="new-inv-qty" placeholder="1" min="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-control" id="new-inv-status">
+            <option>Available</option>
+            <option>In Use</option>
+            <option>In Repair</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Condition</label>
+          <select class="form-control" id="new-inv-cond">
+            <option>Excellent</option>
+            <option>Good</option>
+            <option>Fair</option>
+            <option>Poor</option>
+            <option>In Repair</option>
+          </select>
+        </div>
+      </div>
+      <input type="hidden" id="edit-inv-id" value="">
+
+      <div style="display:flex;gap:10px;justify-content:space-between;margin-top:20px">
+        <button class="btn btn-outline" style="color:#f44336;border-color:rgba(244,67,54,0.3);display:none" id="btn-delete-inv" onclick="deleteInventoryItem()">🗑️ Delete Item</button>
+        <div style="display:flex;gap:10px;margin-left:auto">
+          <button class="btn btn-outline" onclick="closeModal('modal-add-inventory')">Cancel</button>
+          <button class="btn btn-primary" onclick="saveInventory()">✅ Save Item</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADD / EDIT DISPATCH MODAL ══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-add-dispatch">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <span class="modal-title" id="dispatch-modal-title">➕ New Dispatch</span>
+      <button class="modal-close" onclick="closeModal('modal-add-dispatch')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-dsp-id" value="">
+      <div class="form-grid-2">
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Event</label>
+          <select class="form-control" id="new-dsp-event" style="width:100%"></select>
+        </div>
+        <!-- ── Truck Type Toggle ── -->
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Truck Type</label>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button type="button" id="btn-truck-own" class="btn btn-outline btn-sm" onclick="setTruckType('own')" style="flex:1;padding:9px 14px;font-size:12px;text-align:left;border-color:var(--ces-blue);color:var(--ces-blue);background:rgba(0,146,200,0.12);text-transform:uppercase;letter-spacing:0.5px">Own Fleet</button>
+            <button type="button" id="btn-truck-rental" class="btn btn-outline btn-sm" onclick="setTruckType('rental')" style="flex:1;padding:9px 14px;font-size:12px;text-align:left;text-transform:uppercase;letter-spacing:0.5px">Rental Truck</button>
+          </div>
+          <input type="hidden" id="new-dsp-truck-type" value="own">
+        </div>
+        <!-- Own Fleet -->
+        <div class="form-group" id="dsp-own-section">
+          <label class="form-label">Assign Truck</label>
+          <div style="position:relative">
+            <input class="form-control" id="new-dsp-truck" type="text"
+              placeholder="Select from fleet or type new ID..."
+              autocomplete="off"
+              oninput="filterTruckSuggestions(this.value)"
+              onfocus="showTruckSuggestions()"
+              onblur="setTimeout(hideTruckSuggestions, 200)"
+              style="padding-right:32px">
+            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px;pointer-events:none">▾</span>
+            <div id="truck-suggestions"
+              style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:999;
+                     background:var(--bg-card);border:1px solid var(--border);border-radius:8px;
+                     overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.35)">
+            </div>
+          </div>
+        </div>
+        <!-- Rental Company (hidden by default) -->
+        <div class="form-group" id="dsp-rental-company-section" style="display:none">
+          <label class="form-label">Rental Company / Plate No.</label>
+          <input class="form-control" id="new-dsp-rental-company" placeholder="e.g. Al Hamra Trucks — ABC 1234">
+        </div>
+        <!-- Driver (always visible) -->
+        <div class="form-group">
+          <label class="form-label">Driver</label>
+          <input class="form-control" id="new-dsp-driver" placeholder="Driver name">
+        </div>
+        <!-- Rental Cost (hidden by default, full width) -->
+        <div class="form-group" id="dsp-rental-cost-section" style="display:none;grid-column:1/-1">
+          <label class="form-label">Rental Cost ($)</label>
+          <input type="number" class="form-control" id="new-dsp-rental-cost" placeholder="0" min="0" style="max-width:220px">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:space-between;margin-top:16px">
+        <button class="btn btn-outline" id="btn-delete-dispatch" style="color:#f44336;border-color:rgba(244,67,54,0.3);display:none" onclick="deleteDispatch(document.getElementById('edit-dsp-id').value)">🗑️ Delete</button>
+        <div style="display:flex;gap:10px;margin-left:auto">
+          <button class="btn btn-outline" onclick="closeModal('modal-add-dispatch')">Cancel</button>
+          <button class="btn btn-primary" id="btn-submit-dispatch" onclick="submitDispatch()">✅ Create Dispatch</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADD / EDIT CLIENT MODAL ════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-add-client">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <span class="modal-title" id="client-modal-title">➕ Add New Client</span>
+      <button class="modal-close" onclick="closeModal('modal-add-client')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-cli-id" value="">
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Company Name</label>
+          <input class="form-control" id="new-cli-company" placeholder="Acme Corporation">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Contact Name</label>
+          <input class="form-control" id="new-cli-contact" placeholder="John Smith">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-control" id="new-cli-email" placeholder="contact@company.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input class="form-control" id="new-cli-phone" placeholder="+1 234 567 8900">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tier</label>
+          <select class="form-control" id="new-cli-tier">
+            <option>New</option>
+            <option>Regular</option>
+            <option>VIP</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Event</label>
+          <input class="form-control" id="new-cli-lastEvent" placeholder="Event name or date">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:space-between;margin-top:16px">
+        <button class="btn btn-outline" id="btn-delete-client" style="color:#f44336;border-color:rgba(244,67,54,0.3);display:none" onclick="deleteClient(document.getElementById('edit-cli-id').value)">🗑️ Delete Client</button>
+        <div style="display:flex;gap:10px;margin-left:auto">
+          <button class="btn btn-outline" onclick="closeModal('modal-add-client')">Cancel</button>
+          <button class="btn btn-primary" id="btn-submit-client" onclick="submitClient()">✅ Add Client</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SETTINGS MODAL ══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-settings">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <span class="modal-title">⚙️ System Settings</span>
+      <button class="modal-close" onclick="closeModal('modal-settings')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0">
+
+      <!-- ── SECTION: COMPANY ── -->
+      <div class="settings-section">
+        <div class="settings-section-title">🏢 Company Information</div>
+        <div class="settings-section-body">
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">Company Name</label>
+              <input class="form-control" id="cfg-company-name" placeholder="Creative Event Services">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Operations Manager</label>
+              <input class="form-control" id="cfg-manager-name" placeholder="Shane Williams">
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label class="form-label">Contact Email</label>
+              <input class="form-control" id="cfg-email" placeholder="Configured at deployment">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SECTION: DISPLAY ── -->
+      <div class="settings-section">
+        <div class="settings-section-title">🖥️ Display Preferences</div>
+        <div class="settings-section-body">
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">Currency Symbol</label>
+              <select class="form-control" id="cfg-currency">
+                <option value="$">$ — US Dollar</option>
+                <option value="AED">AED — UAE Dirham</option>
+                <option value="£">£ — British Pound</option>
+                <option value="€">€ — Euro</option>
+                <option value="₹">₹ — Indian Rupee</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Date Format</label>
+              <select class="form-control" id="cfg-date-format">
+                <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SECTION: DATA MANAGEMENT ── -->
+      <div class="settings-section">
+        <div class="settings-section-title">📤 Data Management</div>
+        <div class="settings-section-body">
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--text-primary)">Export All Data</div>
+                <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Download Events, Staff, Inventory, Logistics, Clients as CSV</div>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="exportAllData()">⬇ Export All</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SECTION: TEAM ACCESS (Owner only) ── -->
+      <div class="settings-section" id="settings-team-access">
+        <div class="settings-section-title">👥 Team Access</div>
+        <div class="settings-section-body">
+          <div id="team-members-list" style="margin-bottom:4px"></div>
+          <!-- Add Member Form -->
+          <div style="padding-top:14px;margin-top:0">
+            <div style="font-size:10px;font-weight:700;color:var(--ces-cyan);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">+ Add Team Member</div>
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input class="form-control" id="new-member-name" placeholder="e.g. Shane Williams">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" class="form-control" id="new-member-email" placeholder="email@company.com">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Password</label>
+                <div style="position:relative">
+                  <input type="password" class="form-control" id="new-member-password" placeholder="Create a password" style="padding-right:44px">
+                  <button type="button" id="member-pw-toggle" onclick="var i=document.getElementById('new-member-password'),b=document.getElementById('member-pw-toggle');i.type=i.type==='password'?'text':'password';b.innerHTML=i.type==='password'?'<svg width=16 height=16 viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\'><path d=\'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z\'/><circle cx=\'12\' cy=\'12\' r=\'3\'/></svg>':'<svg width=16 height=16 viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\'><path d=\'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24\'/><line x1=\'1\' y1=\'1\' x2=\'23\' y2=\'23\'/></svg>'" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;display:flex;align-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Access Role</label>
+                <select class="form-control" id="new-member-role">
+                  <option value="editor">Editor — Can add / edit / delete</option>
+                  <option value="viewer">Viewer — Read only</option>
+                </select>
+              </div>
+            </div>
+            <div id="team-add-error" style="display:none;color:#f44336;font-size:11px;margin-top:6px;padding:6px 10px;background:rgba(244,67,54,0.08);border-radius:6px"></div>
+            <button class="btn btn-outline btn-sm" onclick="addTeamMember()" style="margin-top:10px">+ Add Member</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SECTION: ABOUT ── -->
+      <div class="settings-section" style="border-bottom:none">
+        <div class="settings-section-title">ℹ️ About</div>
+        <div class="settings-section-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="settings-about-row"><span>System</span><span>CES Enterprise Operations System</span></div>
+            <div class="settings-about-row"><span>Version</span><span>EOS v1.0</span></div>
+            <div class="settings-about-row"><span>Build Year</span><span>2026</span></div>
+            <div class="settings-about-row"><span>Platform</span><span>Firebase Hosting + Firestore</span></div>
+          </div>
+          <div style="margin-top:12px;display:flex;justify-content:center">
+            <button class="btn btn-outline btn-sm" onclick="closeModal('modal-settings');switchPanel('reports',document.querySelector('[data-panel=reports]'))">📈 Go to Reports & Analytics</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <!-- FOOTER -->
+    <div style="padding:14px 20px;border-top:1px solid var(--border-subtle);display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:10px;color:var(--text-muted)">Settings are saved in your browser session</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" onclick="closeModal('modal-settings')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSettings()">✅ Save Settings</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK (only loads when config is filled in) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/firebase-db.js?v=2.5"></script>
+<script src="js/app-config.js?v=2.5"></script>
+<script src="js/auth.js?v=2.5"></script>
+<script src="js/datetime-picker.js"></script>
+<script src="js/dashboard.js?v=2.5"></script>
+<script src="js/events.js"></script>
+<script src="js/staff.js"></script>
+<script src="js/inventory.js"></script>
+<script src="js/logistics.js"></script>
+<script src="js/automation.js"></script>
+<script src="js/settings.js"></script>
+</body>
+</html>
